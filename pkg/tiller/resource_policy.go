@@ -33,9 +33,16 @@ const resourcePolicyAnno = "helm.sh/resource-policy"
 //   during an uninstallRelease action.
 const keepPolicy = "keep"
 
-func filterManifestsToKeep(manifests []Manifest) ([]Manifest, []Manifest) {
+// sharePolicy is the resource policy type for sharing
+//
+// This resource policy type allows resources to skip being created
+//   if exists during an InstallRelease action.
+const sharePolicy = "share"
+
+func filterManifestsToKeep(manifests []Manifest) ([]Manifest, []Manifest, []Manifest) {
 	remaining := []Manifest{}
 	keep := []Manifest{}
+	share := []Manifest{}
 
 	for _, m := range manifests {
 		if m.Head.Metadata == nil || m.Head.Metadata.Annotations == nil || len(m.Head.Metadata.Annotations) == 0 {
@@ -49,13 +56,19 @@ func filterManifestsToKeep(manifests []Manifest) ([]Manifest, []Manifest) {
 			continue
 		}
 
-		resourcePolicyType = strings.ToLower(strings.TrimSpace(resourcePolicyType))
-		if resourcePolicyType == keepPolicy {
-			keep = append(keep, m)
-		}
+        policyTypes := strings.split(strings.ToLower(strings.TrimSpace(resourcePolicyType)), ",")
+        for _, type := range policyTypes {
+            if type == keepPolicy {
+			    keep = append(keep, m)
+            }
+
+            if type == sharePolicy {
+			    share = append(keep, m)
+            }
+        }
 
 	}
-	return keep, remaining
+	return keep, share, remaining
 }
 
 func summarizeKeptManifests(manifests []Manifest, kubeClient environment.KubeClient, namespace string) string {
